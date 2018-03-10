@@ -1,15 +1,18 @@
 package de.dhrng.ml.recomm
 
-import java.io.File
+import java.util
 
 import com.typesafe.scalalogging.LazyLogging
-import de.dhrng.ml.recomm.transformer.{FilterTransformer, FrequentItemSetTransformer}
+import de.dhrng.ml.recomm.reader.TranslogReader
+import de.dhrng.ml.recomm.transformer.{FilterTransformer, FrequentItemSetTransformer, TransitionProbabilitiesTransformer}
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.mllib.fpm.AssociationRules
+import org.apache.spark.mllib.fpm.FPGrowth.FreqItemset
+import org.apache.spark.sql.{Row, SparkSession}
 
 object RecommRunner extends LazyLogging {
 
-  val IMPORT_FOLDER = "../translogs"
+  val IMPORT_FOLDER = "data/singleTransaction"
   val appName: String = "recomm"
   val master: String = "local[*]"
 
@@ -20,8 +23,37 @@ object RecommRunner extends LazyLogging {
 
   def run() = {
     val session = createSparkSesion()
-    val translogs_df = readTranslogs(session)
+    val translogs_df = TranslogReader.from(IMPORT_FOLDER)
+      .withSeparator("|")
+      .read(session)
 
+    val count: Long = translogs_df
+      .select("transactID")
+      .groupBy("transactID")
+      .count() // counter for groupBy --> entries per transaction IDs
+      .count();
+
+    val count2: Long = translogs_df
+      .rdd // create RDD
+      .map(row => (row.get(2), 1)) // map transaction ID with value one
+      .reduceByKey((a, b) => a + b) // reduce by transaction ID and sum values
+      .count() // count lines
+
+    println(">>> DF line count: " + count); // count lines
+    println(">>> DF line count2: " + count2); // count lines
+
+    val filterTransformer = new FilterTransformer(session)
+    val frequentItemSetTransformer = new FrequentItemSetTransformer(session)
+    val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session, 0.000000001)
+
+    val byTransaction = filterTransformer.transform(translogs_df)
+    val itemFrequency = frequentItemSetTransformer.transform(byTransaction)
+    val transitionProbabilities = transitionProbabilitiesTransformer.transform(itemFrequency);
+
+    //val rows = itemFrequency.collectAsList
+    val rows = transitionProbabilities.collectAsList
+
+    /*
     val pipeline = new Pipeline()
       .setStages(Array(
         new FilterTransformer,
@@ -29,7 +61,7 @@ object RecommRunner extends LazyLogging {
       ))
 
     val model = pipeline.fit(translogs_df)
-
+      */
     session.stop()
   }
 
@@ -40,42 +72,5 @@ object RecommRunner extends LazyLogging {
       .master(master)
       .getOrCreate()
   }
-
-  def readTranslogs(session: SparkSession): DataFrame = {
-    // get list fo input data
-    logger.info("read list of files: {}", IMPORT_FOLDER)
-    val inputFiles = new File(IMPORT_FOLDER).listFiles()
-      .toList
-      .filter(file => file.getName.endsWith(".csv"))
-
-    // read first file to DataFrame and append all following files
-    var translogs_df = readCsv(session, inputFiles(0).getAbsolutePath())
-    for (i <- 1 to (inputFiles.length - 1)) {
-      translogs_df = translogs_df.union(readCsv(session, inputFiles(i).getAbsolutePath()))
-    }
-
-    return translogs_df
-  }
-
-  /**
-    * read CSV file from path and create a DataFrame
-    *
-    * path:String path to read CSV file form
-    *
-    * return DataFrame
-    */
-  def readCsv(session: SparkSession, path: String): org.apache.spark.sql.DataFrame = {
-    val df = session.read.format("CSV") // define file format
-      .option("header", "true") // use header line for column names
-      .option("sep", "|") // define column separator
-      .option("timestampFormat", "yyyy-MM-dd HH:mm:ss") // define date format
-      .load(path) // load file form path into DataFrame
-
-    // print debugging output
-    logger.debug("read {} lines from: {}", df.count(), path)
-
-    return df
-  }
-
 
 }

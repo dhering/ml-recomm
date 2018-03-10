@@ -1,4 +1,4 @@
-package de.dhrng.ml.recomm
+package de.dhrng.ml.recomm.estimator
 
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.ParamMap

@@ -1,10 +1,10 @@
-package de.dhrng.ml.recomm
+package de.dhrng.ml.recomm.estimator
 
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 class ReinforcementLearningEstimator(override val uid: String, val sc: SparkContext) extends Estimator[ReinforcementLearningModel]
 {
@@ -22,7 +22,9 @@ class ReinforcementLearningEstimator(override val uid: String, val sc: SparkCont
     copyValues(new ReinforcementLearningEstimator(uid, sc), extra)
   }
 
-  override def transformSchema(schema: StructType): StructType = ???
+  override def transformSchema(schema: StructType): StructType = {
+    new StructType
+  }
 
 
   /**
