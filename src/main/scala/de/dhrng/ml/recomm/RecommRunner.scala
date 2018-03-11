@@ -18,41 +18,27 @@ object RecommRunner extends LazyLogging {
 
   def run() = {
     val session = createSparkSesion()
-    val translogs_df = TranslogReader.from(IMPORT_FOLDER)
+    
+    val translogs = TranslogReader.from(IMPORT_FOLDER)
       .withSeparator("|")
       .read(session)
-
-    val count: Long = translogs_df
-      .select("transactID")
-      .groupBy("transactID")
-      .count() // counter for groupBy --> entries per transaction IDs
-      .count();
-
-    val count2: Long = translogs_df
-      .rdd // create RDD
-      .map(row => (row.get(2), 1)) // map transaction ID with value one
-      .reduceByKey((a, b) => a + b) // reduce by transaction ID and sum values
-      .count() // count lines
-
-    println(">>> DF line count: " + count); // count lines
-    println(">>> DF line count2: " + count2); // count lines
 
     val filterTransformer = new FilterTransformer(session)
     val frequentItemSetTransformer = new FrequentItemSetTransformer(session)
     val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session, 0.000000001)
 
-    val byTransaction = filterTransformer.transform(translogs_df)
+    val byTransaction = filterTransformer.transform(translogs)
     val itemFrequency = frequentItemSetTransformer.transform(byTransaction)
     val transitionProbabilities = transitionProbabilitiesTransformer.transform(itemFrequency);
 
-    //val rows = itemFrequency.collectAsList
     val rows = transitionProbabilities.collectAsList
 
     /*
     val pipeline = new Pipeline()
       .setStages(Array(
-        new FilterTransformer,
-        new FrequentItemSetTransformer
+        filterTransformer,
+        frequentItemSetTransformer,
+        transitionProbabilitiesTransformer
       ))
 
     val model = pipeline.fit(translogs_df)
