@@ -2,9 +2,8 @@ package de.dhrng.ml.recomm.transformer
 
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import spire.syntax.group
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 class FilterTransformer(sparkSession: SparkSession) extends Transformer {
 

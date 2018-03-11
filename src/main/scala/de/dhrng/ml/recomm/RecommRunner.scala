@@ -1,14 +1,9 @@
 package de.dhrng.ml.recomm
 
-import java.util
-
 import com.typesafe.scalalogging.LazyLogging
 import de.dhrng.ml.recomm.reader.TranslogReader
 import de.dhrng.ml.recomm.transformer.{FilterTransformer, FrequentItemSetTransformer, TransitionProbabilitiesTransformer}
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.mllib.fpm.AssociationRules
-import org.apache.spark.mllib.fpm.FPGrowth.FreqItemset
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 object RecommRunner extends LazyLogging {
 
