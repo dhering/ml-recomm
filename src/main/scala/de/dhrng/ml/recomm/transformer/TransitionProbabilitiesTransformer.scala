@@ -11,6 +11,9 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
 
   override val uid: String = ""
 
+  val COL_CONFIDENCE = StructField("confidence", DoubleType, false)
+  val CONFIDENCE = COL_CONFIDENCE.name
+
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     // create FreqItemset of ((antecedent, consequent), frequency)
@@ -35,30 +38,24 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
 
   def createPairFrequencies(dataset: Dataset[_]) = {
 
-    val antecedentCol = dataset.schema.fields(0).name;
-    val consequentCol = dataset.schema.fields(1).name;
-    val frequencyCol = dataset.schema.fields(2).name;
-
+    val ANTECEDENT = dataset.schema.fields(0).name;
+    val CONSEQUENT = dataset.schema.fields(1).name;
+    val FREQUENCY = dataset.schema.fields(2).name;
 
     dataset.toDF().rdd
       .map(row =>
-        new FreqItemset[String](
-          Array(row.getAs(antecedentCol), row.getAs(consequentCol)),
-          Integer.toUnsignedLong(row.getAs(frequencyCol))
-        ))
+        new FreqItemset[String](Array(row.getAs(ANTECEDENT), row.getAs(CONSEQUENT)), row.getAs(FREQUENCY)))
   }
 
   def createAntecedentFreq(dataset: Dataset[_]) = {
 
-    val antecedentCol = dataset.schema.fields(0).name;
-    val frequencyCol = dataset.schema.fields(2).name;
+    val ANTECEDENT = dataset.schema.fields(0).name;
+    val FREQUENCY = dataset.schema.fields(2).name;
 
-    dataset.toDF().rdd
-      .map(row => {
-        (row.getAs(antecedentCol), Integer.toUnsignedLong(row.getAs(frequencyCol)))
-      }: (String, Long))
-      .reduceByKey((a, b) => a + b)
-      .map(row => new FreqItemset[String](Array(row._1), row._2))
+    dataset.toDF()
+      .select(ANTECEDENT, FREQUENCY).groupBy(ANTECEDENT).sum(FREQUENCY)
+      .rdd
+      .map(row => new FreqItemset[String](Array(row.getAs[String](ANTECEDENT)), row.getAs[Long](s"sum($FREQUENCY)")))
   }
 
   override def copy(extra: ParamMap): Transformer = {
@@ -66,10 +63,7 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    StructType(
-      schema.fields(0) ::
-        schema.fields(1) ::
-        StructField("confidence", DoubleType, false) :: Nil)
+    StructType(Seq(schema.fields(0), schema.fields(1), COL_CONFIDENCE))
   }
 
 }
