@@ -43,8 +43,11 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
     val FREQUENCY = dataset.schema.fields(2).name;
 
     dataset.toDF().rdd
-      .map(row =>
-        new FreqItemset[String](Array(row.getAs(ANTECEDENT), row.getAs(CONSEQUENT)), row.getAs(FREQUENCY)))
+      // map to FreqItemsets
+      .map(row => new FreqItemset[String](
+          Array(row.getAs[String](ANTECEDENT), row.getAs[String](CONSEQUENT)),
+          row.getAs[Long](FREQUENCY))
+      )
   }
 
   def createAntecedentFreq(dataset: Dataset[_]) = {
@@ -53,9 +56,15 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
     val FREQUENCY = dataset.schema.fields(2).name;
 
     dataset.toDF()
+      // select only antecedent items and sum frequencies of equal item IDs
       .select(ANTECEDENT, FREQUENCY).groupBy(ANTECEDENT).sum(FREQUENCY)
+
       .rdd
-      .map(row => new FreqItemset[String](Array(row.getAs[String](ANTECEDENT)), row.getAs[Long](s"sum($FREQUENCY)")))
+      // map to FreqItemsets
+      .map(row => new FreqItemset[String](
+        Array(row.getAs[String](ANTECEDENT)),
+        row.getAs[Long](s"sum($FREQUENCY)"))
+      )
   }
 
   override def copy(extra: ParamMap): Transformer = {

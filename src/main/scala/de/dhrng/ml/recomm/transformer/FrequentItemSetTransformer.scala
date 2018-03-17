@@ -46,33 +46,32 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
     freqItemSets
   }
 
-  private def mapToTransitions(itemIdCol: String, rows: Iterator[Row]) = {
-    {
-      var result = Seq.empty[(String, String)]
+  private def mapToTransitions(itemIdCol: String, rows: Iterator[Row]):
+    TraversableOnce[(String, String)] = {
 
-      var lastItemID: String = null
+    var result = Seq.empty[(String, String)]
 
-      for (row <- rows) {
-        val itemId = row.getAs[String](itemIdCol);
+    var lastItemID: String = null
 
-        // Ignore next line, if there is no last item. This case can only be the first item in list
-        if (lastItemID != null) {
-          // add a mapping between the last item and the current item with a count of one
-          result = result :+ (lastItemID, itemId);
-        }
-        // set current item to last item for the next loop
-        lastItemID = itemId;
+    for (row <- rows) {
+      val itemId = row.getAs[String](itemIdCol);
+
+      // Ignore next line, if there is no last item. This case can only be the first item in list
+      if (lastItemID != null) {
+        // add a mapping between the last item and the current item with a count of one
+        result = result :+ (lastItemID, itemId);
       }
+      // set current item to last item for the next loop
+      lastItemID = itemId;
+    }
 
-      // mark last item of a session
-      if(markEnding){
-        result :+ (lastItemID, "#END#");
-      }
+    // mark last item of a session
+    if (markEnding) {
+      result :+ (lastItemID, "#END#");
+    }
 
-      // return result
-      result
-      
-    }: TraversableOnce[(String, String)]
+    // return result
+    result
   }
 
   override def copy(extra: ParamMap): Transformer = {

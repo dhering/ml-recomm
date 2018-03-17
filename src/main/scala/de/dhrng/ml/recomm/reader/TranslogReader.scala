@@ -55,12 +55,13 @@ class TranslogReader private(folder: String) extends LazyLogging {
     val inputFiles: List[File] = getInputFiles
 
     // read first file to DataFrame and append all following files
-    var translogs_df = readDataFrame(session, inputFiles.head.getAbsolutePath)
+    var translogs = readDataFrame(session, inputFiles.head.getAbsolutePath)
     for (i <- 1 until inputFiles.size) {
-      translogs_df = translogs_df.union(readDataFrame(session, inputFiles(i).getAbsolutePath))
+      translogs = translogs.union(readDataFrame(session, inputFiles(i).getAbsolutePath))
     }
 
-    translogs_df
+    // return translogs
+    translogs
   }
 
   private def getInputFiles: List[File] = {
@@ -91,6 +92,7 @@ class TranslogReader private(folder: String) extends LazyLogging {
     // print debugging output
     logger.info("read {} lines from: {}", df.count(), path)
 
+    // return DataFrame
     df
   }
 }
