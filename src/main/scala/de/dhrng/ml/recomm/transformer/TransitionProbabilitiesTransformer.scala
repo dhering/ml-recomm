@@ -4,6 +4,7 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.mllib.fpm.AssociationRules
 import org.apache.spark.mllib.fpm.FPGrowth.FreqItemset
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
@@ -11,23 +12,26 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
 
   override val uid: String = ""
 
-  val COL_CONFIDENCE = StructField("confidence", DoubleType, false)
-  val CONFIDENCE = COL_CONFIDENCE.name
+  val COL_CONFIDENCE = StructField("confidence", DoubleType, nullable = false)
+  val CONFIDENCE: String = COL_CONFIDENCE.name
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
+    // cache for DAG optimization
+    val cachedDataset = dataset.cache()
+
     // create FreqItemset of ((antecedent, consequent), frequency)
-    val pairFrequencies = createPairFrequencies(dataset)
+    val pairFrequencies = createPairFrequencies(cachedDataset)
 
     // create FreqItemset of ((antecedent), frequency)
-    val antecedentFreq = createAntecedentFreq(dataset)
+    val antecedentFreq = createAntecedentFreq(cachedDataset)
 
     // union both FreqItemsets
     val frequencies = pairFrequencies.union(antecedentFreq)
 
     // initialize 
     val associationRules = new AssociationRules()
-    associationRules.setMinConfidence(minConfidence)
+      .setMinConfidence(minConfidence)
 
     val rules = associationRules.run[String](frequencies)
       .distinct()
@@ -36,35 +40,39 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
     sparkSession.createDataFrame(rules, transformSchema(dataset.schema))
   }
 
-  def createPairFrequencies(dataset: Dataset[_]) = {
+  def createPairFrequencies(dataset: Dataset[_]): RDD[FreqItemset[String]] = {
 
-    val ANTECEDENT = dataset.schema.fields(0).name;
-    val CONSEQUENT = dataset.schema.fields(1).name;
-    val FREQUENCY = dataset.schema.fields(2).name;
+    val ANTECEDENT = dataset.schema.fields(0).name
+    val CONSEQUENT = dataset.schema.fields(1).name
+    val FREQUENCY = dataset.schema.fields(2).name
 
     dataset.toDF().rdd
       // map to FreqItemsets
       .map(row => new FreqItemset[String](
-          Array(row.getAs[String](ANTECEDENT), row.getAs[String](CONSEQUENT)),
-          row.getAs[Long](FREQUENCY))
-      )
+      Array(row.getAs[String](ANTECEDENT), row.getAs[String](CONSEQUENT)),
+      row.getAs[Long](FREQUENCY))
+    )
   }
 
-  def createAntecedentFreq(dataset: Dataset[_]) = {
+  def createAntecedentFreq(dataset: Dataset[_]): RDD[FreqItemset[String]] = {
 
-    val ANTECEDENT = dataset.schema.fields(0).name;
-    val FREQUENCY = dataset.schema.fields(2).name;
+    val ANTECEDENT = dataset.schema.fields(0).name
+    val FREQUENCY = dataset.schema.fields(2).name
 
     dataset.toDF()
       // select only antecedent items and sum frequencies of equal item IDs
-      .select(ANTECEDENT, FREQUENCY).groupBy(ANTECEDENT).sum(FREQUENCY)
+      .select(ANTECEDENT, FREQUENCY)
+      //.groupBy(ANTECEDENT).sum(FREQUENCY)
 
       .rdd
-      // map to FreqItemsets
-      .map(row => new FreqItemset[String](
-        Array(row.getAs[String](ANTECEDENT)),
-        row.getAs[Long](s"sum($FREQUENCY)"))
-      )
+        .map(row => (row.getAs[String](ANTECEDENT), row.getAs[Long](FREQUENCY)))
+        .reduceByKey(_ + _)
+      .map(row => new FreqItemset[String](Array(row._1), row._2))
+    // map to FreqItemsets
+      //.map(row => new FreqItemset[String](
+      //Array(row.getAs[String](ANTECEDENT)),
+      //row.getAs[Long](s"sum($FREQUENCY)"))
+    //)
   }
 
   override def copy(extra: ParamMap): Transformer = {

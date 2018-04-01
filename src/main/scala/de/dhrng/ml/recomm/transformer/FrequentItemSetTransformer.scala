@@ -10,14 +10,14 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
   override val uid: String = ""
 
   // define structured fields
-  val COL_ANTECEDENT = StructField("antecedent", StringType, false)
-  val COL_CONSEQUENT = StructField("consequent", StringType, false)
-  val COL_FREQUENCY = StructField("frequency", IntegerType, false)
+  val COL_ANTECEDENT = StructField("antecedent", StringType, nullable = false)
+  val COL_CONSEQUENT = StructField("consequent", StringType, nullable = false)
+  val COL_FREQUENCY = StructField("frequency", IntegerType, nullable = false)
 
   // shortcuts for column names
-  val ANTECEDENT = COL_ANTECEDENT.name
-  val CONSEQUENT = COL_CONSEQUENT.name
-  val FREQUENCY = COL_FREQUENCY.name
+  val ANTECEDENT: String = COL_ANTECEDENT.name
+  val CONSEQUENT: String = COL_CONSEQUENT.name
+  val FREQUENCY: String = COL_FREQUENCY.name
 
   override def transform(translogs: Dataset[_]): DataFrame = {
     // register implicits for spark session
@@ -33,7 +33,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
       .groupByKey(_.getAs[String](TRANSACT_ID))
 
       // collect transitions by grouped transactions
-      .flatMapGroups((transactionId, groups) => mapToTransitions(ITEM_ID, groups))
+      .flatMapGroups((transactionId, rows) => mapToTransitions(rows, ITEM_ID))
 
       // allow only pairs of different itemIDs
       .filter(pair => pair._1 != pair._2)
@@ -46,28 +46,29 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
     freqItemSets
   }
 
-  private def mapToTransitions(itemIdCol: String, rows: Iterator[Row]):
-    TraversableOnce[(String, String)] = {
+  private def mapToTransitions(rows: Iterator[Row], itemIdCol: String):
+  TraversableOnce[(String, String)] = {
 
     var result = Seq.empty[(String, String)]
 
     var lastItemID: String = null
 
+    // TODO: sort by time
     for (row <- rows) {
-      val itemId = row.getAs[String](itemIdCol);
+      val itemId = row.getAs[String](itemIdCol)
 
       // Ignore next line, if there is no last item. This case can only be the first item in list
       if (lastItemID != null) {
         // add a mapping between the last item and the current item with a count of one
-        result = result :+ (lastItemID, itemId);
+        result = result :+ (lastItemID, itemId)
       }
       // set current item to last item for the next loop
-      lastItemID = itemId;
+      lastItemID = itemId
     }
 
     // mark last item of a session
     if (markEnding) {
-      result :+ (lastItemID, "#END#");
+      result = result :+ (lastItemID, "#END#")
     }
 
     // return result
@@ -75,7 +76,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
   }
 
   override def copy(extra: ParamMap): Transformer = {
-    return copyValues(new FrequentItemSetTransformer(sparkSession), extra)
+    copyValues(new FrequentItemSetTransformer(sparkSession), extra)
   }
 
   override def transformSchema(schema: StructType): StructType = {
