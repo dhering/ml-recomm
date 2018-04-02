@@ -21,8 +21,8 @@ class ReinforcementLearningModel(override val uid: String) extends Model[Reinfor
 
   override def transformSchema(schema: StructType): StructType = {
     StructType(
-      StructField("premise", StringType, true) ::
-        StructField("conclusion", StringType, false) ::
-        StructField("value", DoubleType, false) :: Nil)
+      StructField("premise", StringType, nullable = true) ::
+        StructField("conclusion", StringType, nullable = false) ::
+        StructField("value", DoubleType, nullable = false) :: Nil)
   }
 }
