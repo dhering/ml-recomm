@@ -2,9 +2,6 @@ package de.dhrng.ml.recomm.transformer
 
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.mllib.fpm.AssociationRules
-import org.apache.spark.mllib.fpm.FPGrowth.FreqItemset
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
@@ -12,67 +9,60 @@ class TransitionProbabilitiesTransformer(sparkSession: SparkSession, minConfiden
 
   override val uid: String = ""
 
+  val COL_ANTECEDENT_FREQUENCY = StructField("antecedent_frequency", LongType, nullable = false)
   val COL_CONFIDENCE = StructField("confidence", DoubleType, nullable = false)
   val CONFIDENCE: String = COL_CONFIDENCE.name
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
+    import sparkSession.implicits._
+
+    // get column names from dataset
+    val ANTECEDENT = getAntecedentColumn(dataset).name
+    val CONSEQUENT = getConsequentColumn(dataset).name
+    val FREQUENCY = getFrequencyColumn(dataset).name
+    val ANTECEDENT_FREQUENCY = COL_ANTECEDENT_FREQUENCY.name
+
     // cache for DAG optimization
     val cachedDataset = dataset.cache()
 
-    // create FreqItemset of ((antecedent, consequent), frequency)
-    val pairFrequencies = createPairFrequencies(cachedDataset)
-
-    // create FreqItemset of ((antecedent), frequency)
+    // create FreqItemset of (antecedent, frequency)
     val antecedentFreq = createAntecedentFreq(cachedDataset)
 
-    // union both FreqItemsets
-    val frequencies = pairFrequencies.union(antecedentFreq)
+    // join datasets by 'antecedent' column
+    val frequencies = cachedDataset.join(antecedentFreq, ANTECEDENT)
 
-    // initialize 
-    val associationRules = new AssociationRules()
-      .setMinConfidence(minConfidence)
-
-    val rules = associationRules.run[String](frequencies)
-      .distinct()
-      .map(rule => Row(rule.antecedent(0), rule.consequent(0), rule.confidence))
-
-    sparkSession.createDataFrame(rules, transformSchema(dataset.schema))
+    // select columns and calculate confidence
+    frequencies.select($"$ANTECEDENT", $"$CONSEQUENT", $"$FREQUENCY" / $"$ANTECEDENT_FREQUENCY" as CONFIDENCE)
   }
 
-  def createPairFrequencies(dataset: Dataset[_]): RDD[FreqItemset[String]] = {
+  def createAntecedentFreq(dataset: Dataset[_]): DataFrame = {
 
-    val ANTECEDENT = dataset.schema.fields(0).name
-    val CONSEQUENT = dataset.schema.fields(1).name
-    val FREQUENCY = dataset.schema.fields(2).name
+    val COL_ANTECEDENT = getAntecedentColumn(dataset)
+    val ANTECEDENT = COL_ANTECEDENT.name
+    val FREQUENCY = getFrequencyColumn(dataset).name
 
-    dataset.toDF().rdd
-      // map to FreqItemsets
-      .map(row => new FreqItemset[String](
-      Array(row.getAs[String](ANTECEDENT), row.getAs[String](CONSEQUENT)),
-      row.getAs[Long](FREQUENCY))
-    )
-  }
-
-  def createAntecedentFreq(dataset: Dataset[_]): RDD[FreqItemset[String]] = {
-
-    val ANTECEDENT = dataset.schema.fields(0).name
-    val FREQUENCY = dataset.schema.fields(2).name
-
-    dataset.toDF()
+    val freq = dataset.toDF()
       // select only antecedent items and sum frequencies of equal item IDs
       .select(ANTECEDENT, FREQUENCY)
-      //.groupBy(ANTECEDENT).sum(FREQUENCY)
-
       .rdd
         .map(row => (row.getAs[String](ANTECEDENT), row.getAs[Long](FREQUENCY)))
         .reduceByKey(_ + _)
-      .map(row => new FreqItemset[String](Array(row._1), row._2))
-    // map to FreqItemsets
-      //.map(row => new FreqItemset[String](
-      //Array(row.getAs[String](ANTECEDENT)),
-      //row.getAs[Long](s"sum($FREQUENCY)"))
-    //)
+      .map(row => Row(row._1, row._2))
+
+    sparkSession.createDataFrame(freq, StructType(Seq(COL_ANTECEDENT, COL_ANTECEDENT_FREQUENCY)))
+  }
+
+  private def getAntecedentColumn(dataset: Dataset[_]): StructField = {
+    dataset.schema.fields(0)
+  }
+
+  private def getConsequentColumn(dataset: Dataset[_]): StructField = {
+    dataset.schema.fields(1)
+  }
+
+  private def getFrequencyColumn(dataset: Dataset[_]): StructField = {
+    dataset.schema.fields(2)
   }
 
   override def copy(extra: ParamMap): Transformer = {

@@ -19,7 +19,7 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
 
     scenario("transform to probabilities") {
 
-      Given("a list of 5 user transactions")
+      Given("a list of 5 product transitions")
       val session = fixture.session
       import session.implicits._
 
@@ -33,12 +33,12 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
 
       val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session, 0.0001)
 
-      When("the transaction list is filtered")
+      When("the transitions are transformed to probabilities")
       val dataFrame = transitionProbabilitiesTransformer.transform(itemFrequencies)
 
-      Then("only 3 transactions should be remain")
+      Then("5 transition probabilities are in the result")
       val rows = dataFrame.collect()
-      assert(rows.length == 6)
+      assert(rows.length == 5)
       assert(getRowFor("A", "B", rows).getDouble(2) == 0.5)
       assert(getRowFor("A", "C", rows).getDouble(2) == 0.35)
       assert(getRowFor("A", "D", rows).getDouble(2) == 0.15)
