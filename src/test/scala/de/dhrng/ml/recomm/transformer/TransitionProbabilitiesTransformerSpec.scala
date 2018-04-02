@@ -31,7 +31,7 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
         ("B", "E", 1L)
       ).toDF("antecedent", "consequent", "frequency")
 
-      val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session, 0.0001)
+      val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session)
 
       When("the transitions are transformed to probabilities")
       val dataFrame = transitionProbabilitiesTransformer.transform(itemFrequencies)
