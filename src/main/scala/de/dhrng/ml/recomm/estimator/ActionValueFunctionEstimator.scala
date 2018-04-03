@@ -1,15 +1,24 @@
 package de.dhrng.ml.recomm.estimator
 
+import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator.{ProbabilitiesByState, Probability}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Estimator
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
 
-class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeDepth: Int = 10) extends Estimator[ActionValueModel] {
+class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
 
   // Members declared in org.apache.spark.ml.util.Identifiable
   val uid: String = ""
+  var pricing: Map[String, Double] = Map()
+
+  def setPricing(pricing: Map[String, Double]): ActionValueFunctionEstimator = {
+    this.pricing = pricing
+
+    this
+  }
 
   // Members declared in org.apache.spark.ml.Estimator
   override def copy(extra: org.apache.spark.ml.param.ParamMap): ActionValueFunctionEstimator = {
@@ -23,7 +32,8 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     // cache for DAG optimization
     val cachedDataset = dataset.cache()
 
-    val transitionPropabilities = createTransitionPropabilities(cachedDataset).value
+    val transitionProbabilities = createTransitionProbabilities(cachedDataset)
+    val pricing = session.sparkContext.broadcast(this.pricing)
 
     val actionValues = cachedDataset.toDF().rdd
       .map(row => {
@@ -31,7 +41,7 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
         val consequent = row.getString(1)
         val confidence = row.getDouble(2)
 
-        val actionValue = confidence + actionValueFunction(consequent, transitionPropabilities, 2)
+        val actionValue = confidence + calculateActionValue(consequent, transitionProbabilities.value, pricing.value, 2)
 
         Row(antecedent, consequent, actionValue)
       })
@@ -41,62 +51,70 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     new ActionValueModel(session.createDataFrame(actionValues, transformSchema(dataset.schema)))
   }
 
+  /**
+    * map (key, (antecedent, consequent, confidence)) to {@link ProbabilitiesByState}
+    *
+    * @param group a tuple of (key, (antecedent, consequent, confidence))
+    * @return new ProbabilitiesByState object
+    */
   def mapTo(group: (String, Iterable[(String, String, Double)])): ProbabilitiesByState = {
-    val probabilities = group._2.map(row => new Probability(row._3, row._2)).toList
 
-    new ProbabilitiesByState(group._1, probabilities)
+    val key = group._1
+    val rows = group._2
+
+    val probabilities = rows.map(row => Probability(row._3, row._2)).toList
+
+    ProbabilitiesByState(key, probabilities)
   }
 
-  def createTransitionPropabilities(cachedDataset: Dataset[_]) = {
+  def createTransitionProbabilities(cachedDataset: Dataset[_]): Broadcast[Map[String, ProbabilitiesByState]] = {
 
-    def probabilitiesByState = cachedDataset.toDF().rdd
+    def probabilitiesByStates = cachedDataset.toDF().rdd
       .map(row => (row.getString(0), row.getString(1), row.getDouble(2)))
       .groupBy(_._1)
       .map(group => {
-        val probabilities = group._2.map(row => new Probability(row._3, row._2)).toList
+        val probabilities = group._2.map(row => Probability(row._3, row._2)).toList
 
-        (group._1, new ProbabilitiesByState(group._1, probabilities))
+        (group._1, ProbabilitiesByState(group._1, probabilities))
       })
-      .collectAsMap()
+      .collect().toMap[String, ProbabilitiesByState]
 
-    session.sparkContext.broadcast(probabilitiesByState)
+    session.sparkContext.broadcast(probabilitiesByStates)
   }
 
-  def actionValueFunction(state: String, transitionPropabilities: collection.Map[String, ProbabilitiesByState], depth: Int): Double = {
+  def calculateActionValue(state: String, transitionPropabilities: Map[String, ProbabilitiesByState], pricing: Map[String, Double], depth: Int): Double = {
 
-    if(depth >= episodeDepth){
-      return 0
+    if (depth > episodeEndingDepth) {
+      return 0 // end episode
     }
 
     val stateProbabilities = transitionPropabilities.get(state)
 
-    if(stateProbabilities.isEmpty){
-      return 0
+    if (stateProbabilities.isEmpty) {
+      return 0 // end if state probabilities are empty
     }
 
     val probabilities = stateProbabilities.get.probabilities
 
-    val nextStateProbability = probabilities.sortWith(_.probability > _.probability)(0)
+    // select next state by highest probability
+    val nextStateProbability = probabilities.sortWith(_.probability > _.probability).head
 
-    scala.math.pow(gamma, depth) * nextStateProbability.probability +
-  actionValueFunction(nextStateProbability.state, transitionPropabilities, depth + 1)
-}
+    val price = pricing.getOrElse(nextStateProbability.state, 0D)
 
-// Members declared in org.apache.spark.ml.PipelineStage
+    return scala.math.pow(gamma, depth) * price * nextStateProbability.probability +
+      calculateActionValue(nextStateProbability.state, transitionPropabilities, pricing, depth + 1)
+  }
+
   def transformSchema(schema: StructType): StructType = {
     StructType(Seq(COL_PREMISE, COL_CONCLUSION, COL_ACTION_VALUE))
   }
+}
 
-  class ProbabilitiesByState(s: String, p: Seq[Probability]) extends Serializable  {
+object ActionValueFunctionEstimator {
 
-    val state = s
-    val probabilities = p
-  }
+  case class ProbabilitiesByState(state: String, probabilities: Seq[Probability]) extends Serializable
 
-  class Probability(p: Double, s: String) extends Serializable {
-
-    val probability = p
-    val state = s
+  case class Probability(probability: Double, state: String) extends Serializable {
 
     override def toString: String = state + ": " + probability
   }
