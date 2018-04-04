@@ -8,16 +8,16 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 class TransitionProbabilitiesTransformer(sparkSession: SparkSession) extends Transformer {
 
-  override val uid: String = ""
+  override val uid: String = getClass.getName.hashCode.toString
 
   val COL_ANTECEDENT_FREQUENCY = StructField("antecedent_frequency", LongType, nullable = false)
 
-  val ANTECEDENT = COL_ANTECEDENT.name
-  val CONSEQUENT = COL_CONSEQUENT.name
-  val FREQUENCY = COL_FREQUENCY.name
-  val PROBABILITY = COL_PROBABILITY.name
+  val ANTECEDENT: String = COL_ANTECEDENT.name
+  val CONSEQUENT: String = COL_CONSEQUENT.name
+  val FREQUENCY: String = COL_FREQUENCY.name
+  val PROBABILITY: String = COL_PROBABILITY.name
 
-  val ANTECEDENT_FREQUENCY = COL_ANTECEDENT_FREQUENCY.name
+  val ANTECEDENT_FREQUENCY: String = COL_ANTECEDENT_FREQUENCY.name
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 

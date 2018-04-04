@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 class FilterTransformer(sparkSession: SparkSession) extends Transformer {
 
-  override val uid: String = ""
+  override val uid: String = getClass.getName.hashCode.toString
 
   // shortcuts for column names
   val TRANSACTION_ID: String = COL_TRANSACTION_ID.name

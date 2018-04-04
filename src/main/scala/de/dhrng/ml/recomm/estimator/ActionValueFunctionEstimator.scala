@@ -4,19 +4,19 @@ import de.dhrng.ml.recomm.common.ColumnDefinition._
 import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator.{ProbabilitiesByState, Probability}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Estimator
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10, val minPrice: Double = 0.01D) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
 
-  val ANTECEDENT = COL_ANTECEDENT.name
-  val CONSEQUENT = COL_CONSEQUENT.name
-  val PROBABILITY = COL_PROBABILITY.name
+  override val uid: String = getClass.getName.hashCode.toString
 
-  // Members declared in org.apache.spark.ml.util.Identifiable
-  val uid: String = ""
+  val ANTECEDENT: String = COL_ANTECEDENT.name
+  val CONSEQUENT: String = COL_CONSEQUENT.name
+
+  val PROBABILITY: String = COL_PROBABILITY.name
   var pricing: Map[String, Double] = Map()
 
   def setPricing(pricing: Map[String, Double]): ActionValueFunctionEstimator = {
@@ -86,7 +86,7 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     session.sparkContext.broadcast(probabilitiesByStates)
   }
 
-  def calcDiscount(gamma: Double, depth: Int) = scala.math.pow(gamma, depth)
+  def calcDiscount(gamma: Double, depth: Int): Double = scala.math.pow(gamma, depth)
 
   def calculateActionValue(state: String, transitionProbabilities: Map[String, ProbabilitiesByState], pricing: Map[String, Double], depth: Int): Double = {
 

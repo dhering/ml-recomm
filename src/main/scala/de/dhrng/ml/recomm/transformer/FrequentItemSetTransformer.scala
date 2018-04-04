@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean = false) extends Transformer {
 
-  override val uid: String = ""
+  override val uid: String = getClass.getName.hashCode.toString
 
   // shortcuts for column names
   val ANTECEDENT: String = COL_ANTECEDENT.name
@@ -37,7 +37,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
       // group by (antecedent, consequent) and count as (frequency)
       .select('_1 as ANTECEDENT, '_2 as CONSEQUENT)
       .groupBy(ANTECEDENT, CONSEQUENT)
-      .count().as(FREQUENCY)
+      .count().withColumnRenamed("count", FREQUENCY)
 
     freqItemSets
   }

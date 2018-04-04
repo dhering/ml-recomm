@@ -10,13 +10,11 @@ object ActionValueModel {
   val COL_ACTION_VALUE = StructField("value", DoubleType, nullable = false)
 }
 
-class ActionValueModel(val m: DataFrame) extends Model[ActionValueModel] {
+class ActionValueModel(val model: DataFrame) extends Model[ActionValueModel] {
+
+  override val uid: String = getClass.getName.hashCode.toString
 
   import ActionValueModel._
-
-  override val uid: String = ""
-
-  val model = m
 
   /**
     * Create a copy of the model.
@@ -28,7 +26,9 @@ class ActionValueModel(val m: DataFrame) extends Model[ActionValueModel] {
     copyValues(new ActionValueModel(model), extra).setParent(parent)
   }
 
-  override def transform(dataset: Dataset[_]): DataFrame = ???
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    model.select()
+  }
 
   override def transformSchema(schema: StructType): StructType = {
     StructType(Seq(COL_PREMISE, COL_CONCLUSION, COL_ACTION_VALUE))
