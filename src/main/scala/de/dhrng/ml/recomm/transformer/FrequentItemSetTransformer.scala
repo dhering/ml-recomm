@@ -1,5 +1,6 @@
 package de.dhrng.ml.recomm.transformer
 
+import de.dhrng.ml.recomm.common.ColumnDefinition._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types._
@@ -8,11 +9,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean = false) extends Transformer {
 
   override val uid: String = ""
-
-  // define structured fields
-  val COL_ANTECEDENT = StructField("antecedent", StringType, nullable = false)
-  val COL_CONSEQUENT = StructField("consequent", StringType, nullable = false)
-  val COL_FREQUENCY = StructField("frequency", IntegerType, nullable = false)
 
   // shortcuts for column names
   val ANTECEDENT: String = COL_ANTECEDENT.name
@@ -53,7 +49,6 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
 
     var lastItemID: String = null
 
-    // TODO: sort by time
     for (row <- rows) {
       val itemId = row.getAs[String](itemIdCol)
 
@@ -71,8 +66,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
       result = result :+ (lastItemID, "#END#")
     }
 
-    // return result
-    result
+    return result
   }
 
   override def copy(extra: ParamMap): Transformer = {
@@ -82,5 +76,4 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
   override def transformSchema(schema: StructType): StructType = {
     StructType(Seq(COL_ANTECEDENT, COL_CONSEQUENT, COL_FREQUENCY))
   }
-
 }

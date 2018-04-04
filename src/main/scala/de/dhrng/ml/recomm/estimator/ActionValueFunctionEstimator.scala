@@ -1,14 +1,19 @@
 package de.dhrng.ml.recomm.estimator
 
+import de.dhrng.ml.recomm.common.ColumnDefinition._
 import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator.{ProbabilitiesByState, Probability}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Estimator
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
 
-class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10) extends Estimator[ActionValueModel] {
+class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10, val minPrice: Double = 0.01D) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
+
+  val ANTECEDENT = COL_ANTECEDENT.name
+  val CONSEQUENT = COL_CONSEQUENT.name
+  val PROBABILITY = COL_PROBABILITY.name
 
   // Members declared in org.apache.spark.ml.util.Identifiable
   val uid: String = ""
@@ -27,8 +32,6 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
 
   def fit(dataset: Dataset[_]): ActionValueModel = {
 
-    val ANTECEDENT = dataset.schema.fields(0).name
-
     // cache for DAG optimization
     val cachedDataset = dataset.cache()
 
@@ -37,11 +40,12 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
 
     val actionValues = cachedDataset.toDF().rdd
       .map(row => {
-        val antecedent = row.getString(0)
-        val consequent = row.getString(1)
-        val confidence = row.getDouble(2)
+        val antecedent = row.getAs[String](ANTECEDENT)
+        val consequent = row.getAs[String](CONSEQUENT)
+        val probability = row.getAs[Double](PROBABILITY)
+        val price = pricing.value.getOrElse(consequent, minPrice)
 
-        val actionValue = confidence + calculateActionValue(consequent, transitionProbabilities.value, pricing.value, 2)
+        val actionValue = probability * price + calculateActionValue(consequent, transitionProbabilities.value, pricing.value, 2)
 
         Row(antecedent, consequent, actionValue)
       })
@@ -52,9 +56,9 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
   }
 
   /**
-    * map (key, (antecedent, consequent, confidence)) to {@link ProbabilitiesByState}
+    * map (key, (antecedent, consequent, probability)) to {@link ProbabilitiesByState}
     *
-    * @param group a tuple of (key, (antecedent, consequent, confidence))
+    * @param group a tuple of (key, (antecedent, consequent, probability))
     * @return new ProbabilitiesByState object
     */
   def mapTo(group: (String, Iterable[(String, String, Double)])): ProbabilitiesByState = {
@@ -69,7 +73,7 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
 
   def createTransitionProbabilities(cachedDataset: Dataset[_]): Broadcast[Map[String, ProbabilitiesByState]] = {
 
-    def probabilitiesByStates = cachedDataset.toDF().rdd
+    val probabilitiesByStates = cachedDataset.toDF().rdd
       .map(row => (row.getString(0), row.getString(1), row.getDouble(2)))
       .groupBy(_._1)
       .map(group => {
@@ -82,13 +86,15 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     session.sparkContext.broadcast(probabilitiesByStates)
   }
 
-  def calculateActionValue(state: String, transitionPropabilities: Map[String, ProbabilitiesByState], pricing: Map[String, Double], depth: Int): Double = {
+  def calcDiscount(gamma: Double, depth: Int) = scala.math.pow(gamma, depth)
+
+  def calculateActionValue(state: String, transitionProbabilities: Map[String, ProbabilitiesByState], pricing: Map[String, Double], depth: Int): Double = {
 
     if (depth > episodeEndingDepth) {
       return 0 // end episode
     }
 
-    val stateProbabilities = transitionPropabilities.get(state)
+    val stateProbabilities = transitionProbabilities.get(state)
 
     if (stateProbabilities.isEmpty) {
       return 0 // end if state probabilities are empty
@@ -97,12 +103,13 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     val probabilities = stateProbabilities.get.probabilities
 
     // select next state by highest probability
-    val nextStateProbability = probabilities.sortWith(_.probability > _.probability).head
+    val nextState = probabilities.sortWith(_.probability > _.probability).head
 
-    val price = pricing.getOrElse(nextStateProbability.state, 0D)
+    val discount = calcDiscount(gamma, depth)
+    val price = pricing.getOrElse(nextState.state, minPrice)
 
-    return scala.math.pow(gamma, depth) * price * nextStateProbability.probability +
-      calculateActionValue(nextStateProbability.state, transitionPropabilities, pricing, depth + 1)
+    return discount * price * nextState.probability +
+      calculateActionValue(nextState.state, transitionProbabilities, pricing, depth + 1)
   }
 
   def transformSchema(schema: StructType): StructType = {
@@ -118,5 +125,4 @@ object ActionValueFunctionEstimator {
 
     override def toString: String = state + ": " + probability
   }
-
 }

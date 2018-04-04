@@ -1,14 +1,12 @@
 package de.dhrng.ml.recomm.estimator
 
+import de.dhrng.ml.recomm.common.ColumnDefinition._
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 object ActionValueModel {
-
-  val COL_PREMISE = StructField("premise", StringType, nullable = false)
-  val COL_CONCLUSION = StructField("conclusion", StringType, nullable = false)
   val COL_ACTION_VALUE = StructField("value", DoubleType, nullable = false)
 }
 

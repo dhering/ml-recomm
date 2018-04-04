@@ -35,7 +35,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         ("F", "G", 1.0D),
         ("G", "H", 1.0D),
         ("H", "I", 1.0D)
-      ).toDF("antecedent", "consequent", "confidence")
+      ).toDF("antecedent", "consequent", "probability")
 
       val pricing = Map(
         "A" -> 5D,
@@ -57,12 +57,12 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
       Then("only 3 transactions should be remain")
       assert(model.length == 10)
       assert(getRowFor("A", "B", model).getDouble(2) ==
-        0.5 // A -> B
+        10 * 0.5 // A -> B
           + scala.math.pow(0.5, 2) * 1 * 0.9999 // B -> D
           + scala.math.pow(0.5, 3) * 10 * 1.0 // D -> E
       )
       assert(getRowFor("A", "C", model).getDouble(2) ==
-        0.35 // A -> C
+        15 * 0.35 // A -> C
           + scala.math.pow(0.5, 2) * 2 * 1.0 // C -> F
           + scala.math.pow(0.5, 3) * 1 * 1.0 // F -> G
           + scala.math.pow(0.5, 4) * 3 * 1.0 // G -> H

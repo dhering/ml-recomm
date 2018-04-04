@@ -1,17 +1,14 @@
 package de.dhrng.ml.recomm.transformer
 
+import de.dhrng.ml.recomm.common.ColumnDefinition._
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 class FilterTransformer(sparkSession: SparkSession) extends Transformer {
 
   override val uid: String = ""
-
-  // define structured fields
-  val COL_TRANSACTION_ID = StructField("transactID", StringType, nullable = false)
-  val COL_ITEM_ID = StructField("itemID", StringType, nullable = false)
 
   // shortcuts for column names
   val TRANSACTION_ID: String = COL_TRANSACTION_ID.name
