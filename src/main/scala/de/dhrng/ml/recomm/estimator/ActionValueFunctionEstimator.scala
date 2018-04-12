@@ -9,7 +9,7 @@ import org.apache.spark.ml.Estimator
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
-class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10, val minPrice: Double = 0.01D) extends Estimator[ActionValueModel] {
+class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10, val minReward: Double = 1.0D) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
 
@@ -19,12 +19,12 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
   val CONSEQUENT: String = COL_CONSEQUENT.name
 
   val PROBABILITY: String = COL_PROBABILITY.name
-  var prices: Map[String, Double] = Map()
+  var rewards: Map[String, Double] = Map()
 
   val policy = GreedyPolicy
 
-  def setPrices(prices: Map[String, Double]): ActionValueFunctionEstimator = {
-    this.prices = prices
+  def setRewards(rewards: Map[String, Double]): ActionValueFunctionEstimator = {
+    this.rewards = rewards
 
     this
   }
@@ -40,16 +40,16 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     val cachedDataset = dataset.cache()
 
     val transitionProbabilities = createTransitionProbabilities(cachedDataset)
-    val prices = session.sparkContext.broadcast(this.prices)
+    val rewards = session.sparkContext.broadcast(this.rewards)
 
     val actionValues = cachedDataset.toDF().rdd
       .map(row => {
         val antecedent = row.getAs[String](ANTECEDENT)
         val consequent = row.getAs[String](CONSEQUENT)
         val probability = row.getAs[Double](PROBABILITY)
-        val price = prices.value.getOrElse(consequent, minPrice)
+        val reward = rewards.value.getOrElse(consequent, minReward)
 
-        val actionValue = probability * price + calculateActionValue(consequent, transitionProbabilities.value, prices.value, 2)
+        val actionValue = probability * reward + calculateActionValue(consequent, transitionProbabilities.value, rewards.value, 2)
 
         Row(antecedent, consequent, actionValue)
       })
@@ -90,7 +90,7 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
 
   def calcDiscount(gamma: Double, depth: Int): Double = scala.math.pow(gamma, depth)
 
-  def calculateActionValue(state: String, transitionProbabilities: Map[String, ProbabilitiesByState], prices: Map[String, Double], depth: Int): Double = {
+  def calculateActionValue(state: String, transitionProbabilities: Map[String, ProbabilitiesByState], rewards: Map[String, Double], depth: Int): Double = {
 
     if (depth > episodeEndingDepth) {
       return 0 // end episode
@@ -106,10 +106,10 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     val nextState = policy.select(stateProbabilities.get.probabilities)
 
     val discount = calcDiscount(gamma, depth)
-    val price = prices.getOrElse(nextState.state, minPrice)
+    val reward = rewards.getOrElse(nextState.state, minReward)
 
-    return discount * price * nextState.probability +
-      calculateActionValue(nextState.state, transitionProbabilities, prices, depth + 1)
+    return discount * reward * nextState.probability +
+      calculateActionValue(nextState.state, transitionProbabilities, rewards, depth + 1)
   }
 
   def transformSchema(schema: StructType): StructType = {

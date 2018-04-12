@@ -37,7 +37,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         ("H", "I", 1.0D)
       ).toDF("antecedent", "consequent", "probability")
 
-      val prices = Map(
+      val rewards = Map(
         "A" -> 5D,
         "B" -> 10D,
         "C" -> 15D,
@@ -49,7 +49,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "I" -> 1D
       )
 
-      val estimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4).setPrices(prices)
+      val estimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4).setRewards(rewards)
 
       When("the transaction list is filtered")
       val model = estimator.fit(transactions).model.collect()
@@ -75,7 +75,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
 
     scenario("estimate action value") {
 
-      Given("a set of probabilities by states and prices for the states")
+      Given("a set of probabilities by states and rewards for the states")
       val probabilities = Map[String, ProbabilitiesByState](
         "A" -> ProbabilitiesByState("A", Seq(
           StateProbability("B", 0.5),
@@ -93,7 +93,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "H" -> ProbabilitiesByState("H", Seq(StateProbability("I", 1.0D)))
       )
 
-      val prices = Map(
+      val rewards = Map(
         "A" -> 5D,
         "B" -> 10D,
         "C" -> 15D,
@@ -105,10 +105,10 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "I" -> 1D
       )
 
-      val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setPrices(prices)
+      val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setRewards(rewards)
 
       When("calculate action value for state 'C'")
-      val actionValue = estimator.calculateActionValue("C", probabilities, prices, 2)
+      val actionValue = estimator.calculateActionValue("C", probabilities, rewards, 2)
 
       Then("action value is as expected with a depth limit of 4")
       assert(actionValue ==
