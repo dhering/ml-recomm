@@ -25,11 +25,11 @@ class FilterTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers
       import session.implicits._
 
       val transactions: DataFrame = Seq(
-        ("trans1", "A", -1),
-        ("trans1", "B", -1),
-        ("trans1", "__Z", -1),  // remove this
-        ("trans1", "C", -1),
-        ("trans1", "C", 1)      // remove this
+        ("trans1", "A", "-1"),
+        ("trans1", "B", "-1"),
+        ("trans1", "__Z", "-1"),  // remove this
+        ("trans1", "C", "-1"),
+        ("trans1", "C", "1")      // remove this
       ).toDF("transactID", "itemID", "transType")
 
       val filterTransformer = new FilterTransformer(session )

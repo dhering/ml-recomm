@@ -19,7 +19,7 @@ class FilterTransformer(sparkSession: SparkSession) extends Transformer {
     translogs
       .select(TRANSACTION_ID, ITEM_ID, TRAN_TYPE)
       .filter (row => !row.getAs[String](ITEM_ID).startsWith("__"))
-      .filter (row => row.getAs[Integer](TRAN_TYPE) == -1)
+      .filter (row => row.getAs[String](TRAN_TYPE) == "-1")
       .select(TRANSACTION_ID, ITEM_ID)
   }
 
