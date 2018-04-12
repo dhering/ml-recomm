@@ -40,6 +40,7 @@ object RecommRunner extends LazyLogging {
       ))
 
     val model = pipeline.fit(translogs)
+        .stages.last.asInstanceOf[de.dhrng.ml.recomm.estimator.ActionValueModel]
 
     session.stop()
   }

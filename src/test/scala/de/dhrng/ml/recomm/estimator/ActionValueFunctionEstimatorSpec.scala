@@ -1,6 +1,6 @@
 package de.dhrng.ml.recomm.estimator
 
-import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator.{ProbabilitiesByState, Probability}
+import de.dhrng.ml.recomm.model.ml.{ProbabilitiesByState, StateProbability}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.scalatest._
 
@@ -37,7 +37,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         ("H", "I", 1.0D)
       ).toDF("antecedent", "consequent", "probability")
 
-      val pricing = Map(
+      val prices = Map(
         "A" -> 5D,
         "B" -> 10D,
         "C" -> 15D,
@@ -49,7 +49,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "I" -> 1D
       )
 
-      val estimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4).setPricing(pricing)
+      val estimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4).setPrices(prices)
 
       When("the transaction list is filtered")
       val model = estimator.fit(transactions).model.collect()
@@ -75,25 +75,25 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
 
     scenario("estimate action value") {
 
-      Given("a set of probabilities by states and pricing for the states")
+      Given("a set of probabilities by states and prices for the states")
       val probabilities = Map[String, ProbabilitiesByState](
         "A" -> ProbabilitiesByState("A", Seq(
-          Probability(0.5, "B"),
-          Probability(0.35, "C"),
-          Probability(0.15, "D")
+          StateProbability("B", 0.5),
+          StateProbability("C", 0.35),
+          StateProbability("D", 0.15)
         )),
         "B" -> ProbabilitiesByState("B", Seq(
-          Probability(0.9999D, "E"),
-          Probability(0.0001D, "E")
+          StateProbability("E",0.9999D),
+          StateProbability("E",0.0001D)
         )),
-        "C" -> ProbabilitiesByState("C", Seq(Probability(1.0D, "F"))),
-        "D" -> ProbabilitiesByState("D", Seq(Probability(1.0D, "E"))),
-        "F" -> ProbabilitiesByState("F", Seq(Probability(1.0D, "G"))),
-        "G" -> ProbabilitiesByState("G", Seq(Probability(1.0D, "H"))),
-        "H" -> ProbabilitiesByState("H", Seq(Probability(1.0D, "I")))
+        "C" -> ProbabilitiesByState("C", Seq(StateProbability("F", 1.0D))),
+        "D" -> ProbabilitiesByState("D", Seq(StateProbability("E", 1.0D))),
+        "F" -> ProbabilitiesByState("F", Seq(StateProbability("G", 1.0D))),
+        "G" -> ProbabilitiesByState("G", Seq(StateProbability("H", 1.0D))),
+        "H" -> ProbabilitiesByState("H", Seq(StateProbability("I", 1.0D)))
       )
 
-      val pricing = Map(
+      val prices = Map(
         "A" -> 5D,
         "B" -> 10D,
         "C" -> 15D,
@@ -105,10 +105,10 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "I" -> 1D
       )
 
-      val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setPricing(pricing)
+      val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setPrices(prices)
 
       When("calculate action value for state 'C'")
-      val actionValue = estimator.calculateActionValue("C", probabilities, pricing, 2)
+      val actionValue = estimator.calculateActionValue("C", probabilities, prices, 2)
 
       Then("action value is as expected with a depth limit of 4")
       assert(actionValue ==

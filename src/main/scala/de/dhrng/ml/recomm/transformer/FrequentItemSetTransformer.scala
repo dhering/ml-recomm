@@ -11,6 +11,9 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
   override val uid: String = getClass.getName.hashCode.toString
 
   // shortcuts for column names
+  val TRANSACTION_ID: String = COL_TRANSACTION_ID.name
+  val ITEM_ID: String = COL_ITEM_ID.name
+
   val ANTECEDENT: String = COL_ANTECEDENT.name
   val CONSEQUENT: String = COL_CONSEQUENT.name
   val FREQUENCY: String = COL_FREQUENCY.name
@@ -19,17 +22,12 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
     // register implicits for spark session
     import sparkSession.implicits._
 
-    // read column names from Dataset
-    val TRANSACT_ID = translogs.schema.fields(0).name
-    val ITEM_ID = translogs.schema.fields(1).name
-
-
     val freqItemSets = translogs.toDF()
       // group by first column (transaction ID)
-      .groupByKey(_.getAs[String](TRANSACT_ID))
+      .groupByKey(_.getAs[String](TRANSACTION_ID))
 
       // collect transitions by grouped transactions
-      .flatMapGroups((transactionId, rows) => mapToTransitions(rows, ITEM_ID))
+      .flatMapGroups((transactionId, rows) => mapToTransitions(rows))
 
       // allow only pairs of different itemIDs
       .filter(pair => pair._1 != pair._2)
@@ -42,15 +40,15 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
     freqItemSets
   }
 
-  private def mapToTransitions(rows: Iterator[Row], itemIdCol: String):
-  TraversableOnce[(String, String)] = {
+  private def mapToTransitions(rows: Iterator[Row]):
+    TraversableOnce[(String, String)] = {
 
     var result = Seq.empty[(String, String)]
 
     var lastItemID: String = null
 
     for (row <- rows) {
-      val itemId = row.getAs[String](itemIdCol)
+      val itemId = row.getAs[String](ITEM_ID)
 
       // Ignore next line, if there is no last item. This case can only be the first item in list
       if (lastItemID != null) {
