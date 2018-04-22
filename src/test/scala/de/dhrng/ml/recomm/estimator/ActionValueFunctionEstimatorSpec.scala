@@ -2,10 +2,12 @@ package de.dhrng.ml.recomm.estimator
 
 import de.dhrng.ml.recomm.model.ml.{ProbabilitiesByState, StateProbability}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.mockito.Mockito
+import org.mockito.Mockito._
 import org.scalatest._
 
 class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen with Matchers with
-  OptionValues with Inside with Inspectors with BeforeAndAfter {
+  OptionValues with Inside with Inspectors with BeforeAndAfter  {
 
 
   def fixture: {val session: SparkSession} = new {
@@ -56,18 +58,20 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
 
       Then("only 3 transactions should be remain")
       assert(model.length == 10)
+
       assert(getRowFor("A", "B", model).getDouble(2) ==
-        10 * 0.5 // A -> B
-          + scala.math.pow(0.5, 2) * 1 * 0.9999 // B -> D
-          + scala.math.pow(0.5, 3) * 10 * 1.0 // D -> E
-      )
+        10 * scala.math.pow(0.5, 0) * 0.5  // A -> B
+          + 1 * scala.math.pow(0.5, 1) * 0.9999 // B -> D
+          + 10 * scala.math.pow(0.5, 2) * 1.0, // D -> E
+      "row[A, B]")
+
       assert(getRowFor("A", "C", model).getDouble(2) ==
-        15 * 0.35 // A -> C
-          + scala.math.pow(0.5, 2) * 2 * 1.0 // C -> F
-          + scala.math.pow(0.5, 3) * 1 * 1.0 // F -> G
-          + scala.math.pow(0.5, 4) * 3 * 1.0 // G -> H
-        // skip H -> I
-      )
+        15.0 * scala.math.pow(0.5, 0) * 0.35 // A -> C
+          + 2.0 * scala.math.pow(0.5, 1) * 1.0 // C -> F
+          + 1.0 * scala.math.pow(0.5, 2) * 1.0 // F -> G
+          + 3.0 * scala.math.pow(0.5, 3) * 1.0 // G -> H
+          , // skip H -> I
+      "row[A, C]")
     }
   }
 
@@ -76,43 +80,47 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
     scenario("estimate action value") {
 
       Given("a set of probabilities by states and rewards for the states")
-      val probabilities = Map[String, ProbabilitiesByState](
-        "A" -> ProbabilitiesByState("A", Seq(
-          StateProbability("B", 0.5),
-          StateProbability("C", 0.35),
-          StateProbability("D", 0.15)
-        )),
-        "B" -> ProbabilitiesByState("B", Seq(
-          StateProbability("E",0.9999D),
-          StateProbability("E",0.0001D)
-        )),
-        "C" -> ProbabilitiesByState("C", Seq(StateProbability("F", 1.0D))),
-        "D" -> ProbabilitiesByState("D", Seq(StateProbability("E", 1.0D))),
-        "F" -> ProbabilitiesByState("F", Seq(StateProbability("G", 1.0D))),
-        "G" -> ProbabilitiesByState("G", Seq(StateProbability("H", 1.0D))),
-        "H" -> ProbabilitiesByState("H", Seq(StateProbability("I", 1.0D)))
-      )
+      val probabilitiesByStateA = ProbabilitiesByState("A", Seq(
+        StateProbability("B", 0.5),
+        StateProbability("C", 0.35),
+        StateProbability("D", 0.15)
+      ))
+      val probabilitiesByStateB = ProbabilitiesByState("B", Seq(
+        StateProbability("D",0.9999D),
+        StateProbability("E",0.0001D)
+      ))
+      val probabilitiesByStateC = ProbabilitiesByState("C", Seq(StateProbability("F", 1.0D)))
+      val probabilitiesByStateD = ProbabilitiesByState("D", Seq(StateProbability("E", 1.0D)))
+      val probabilitiesByStateF = ProbabilitiesByState("F", Seq(StateProbability("G", 1.0D)))
+      val probabilitiesByStateG = ProbabilitiesByState("G", Seq(StateProbability("H", 1.0D)))
+      val probabilitiesByStateH = ProbabilitiesByState("H", Seq(StateProbability("I", 1.0D)))
 
-      val rewards = Map(
-        "A" -> 5D,
-        "B" -> 10D,
-        "C" -> 15D,
-        "D" -> 1D,
-        "E" -> 10D,
-        "F" -> 2D,
-        "G" -> 1D,
-        "H" -> 3D,
-        "I" -> 1D
-      )
+      val estimator = Mockito.spy(new ActionValueFunctionEstimator(null, episodeEndingDepth = 4))
+      doReturn(Some(probabilitiesByStateA)).when(estimator).getProbabilitiesByState("A")
+      doReturn(Some(probabilitiesByStateB)).when(estimator).getProbabilitiesByState("B")
+      doReturn(Some(probabilitiesByStateC)).when(estimator).getProbabilitiesByState("C")
+      doReturn(Some(probabilitiesByStateD)).when(estimator).getProbabilitiesByState("D")
+      doReturn(Some(probabilitiesByStateF)).when(estimator).getProbabilitiesByState("F")
+      doReturn(Some(probabilitiesByStateG)).when(estimator).getProbabilitiesByState("G")
+      doReturn(Some(probabilitiesByStateH)).when(estimator).getProbabilitiesByState("H")
+      doReturn(None).when(estimator).getProbabilitiesByState("I")
 
-      val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setRewards(rewards)
+      doReturn(5D) .when(estimator).getReward("A")
+      doReturn(10D).when(estimator).getReward("B")
+      doReturn(15D).when(estimator).getReward("C")
+      doReturn(1D) .when(estimator).getReward("D")
+      doReturn(10D).when(estimator).getReward("E")
+      doReturn(2D) .when(estimator).getReward("F")
+      doReturn(1D) .when(estimator).getReward("G")
+      doReturn(3D) .when(estimator).getReward("H")
+      doReturn(1D) .when(estimator).getReward("I")
 
-      When("calculate action value for state 'C'")
-      val actionValue = estimator.calculateActionValue(StateProbability("C", 0.35), probabilities, rewards, 1)
+      When("calculate action value for state 'F'")
+      val actionValue = estimator.calculateActionValue(StateProbability("F", 1.0), 1)
 
       Then("action value is as expected with a depth limit of 4")
       assert(actionValue ==
-        2.0 * scala.math.pow(0.5, 0) * 0.35 // C -> F
+        2.0 * scala.math.pow(0.5, 0) * 1.0 // C -> F
           + 1.0 * scala.math.pow(0.5, 1) * 1.0 // F -> G
           + 3.0 * scala.math.pow(0.5, 2) * 1.0 // G -> H
           + 1.0 * scala.math.pow(0.5, 3) * 1.0 // H -> I
