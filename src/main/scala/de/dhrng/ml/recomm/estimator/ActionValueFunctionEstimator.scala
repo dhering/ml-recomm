@@ -1,15 +1,16 @@
 package de.dhrng.ml.recomm.estimator
 
 import de.dhrng.ml.recomm.common.ColumnDefinition._
-import de.dhrng.ml.recomm.model.ml
 import de.dhrng.ml.recomm.model.ml.{ProbabilitiesByState, StateProbability}
 import de.dhrng.ml.recomm.policy.GreedyPolicy
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Estimator
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
-class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double = 0.5, val episodeEndingDepth: Int = 10, val minReward: Double = 1.0D) extends Estimator[ActionValueModel] {
+class ActionValueFunctionEstimator( val session: SparkSession,
+                                    val gamma: Double = 0.5,
+                                    val episodeEndingDepth: Int = 10,
+                                    val minReward: Double = 1.0D) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
 
@@ -19,9 +20,9 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
   val CONSEQUENT: String = COL_CONSEQUENT.name
 
   val PROBABILITY: String = COL_PROBABILITY.name
-  var rewards: Map[String, Double] = Map()
 
   val policy = GreedyPolicy
+  var rewards: Map[String, Double] = Map()
 
   def setRewards(rewards: Map[String, Double]): ActionValueFunctionEstimator = {
     this.rewards = rewards
@@ -39,7 +40,8 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     // cache for DAG optimization
     val cachedDataset = dataset.cache()
 
-    val transitionProbabilities = createTransitionProbabilities(cachedDataset)
+    // broadcast common data
+    val transitionProbabilities = session.sparkContext.broadcast(createTransitionProbabilities(cachedDataset))
     val rewards = session.sparkContext.broadcast(this.rewards)
 
     val actionValues = cachedDataset.toDF().rdd
@@ -49,7 +51,7 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
         val probability = row.getAs[Double](PROBABILITY)
         val reward = rewards.value.getOrElse(consequent, minReward)
 
-        val actionValue = probability * reward + calculateActionValue(consequent, transitionProbabilities.value, rewards.value, 2)
+        val actionValue = calculateActionValue(StateProbability(consequent, probability), transitionProbabilities.value, rewards.value, 2)
 
         Row(antecedent, consequent, actionValue)
       })
@@ -73,9 +75,9 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
     ProbabilitiesByState(key, probabilities)
   }
 
-  def createTransitionProbabilities(cachedDataset: Dataset[_]): Broadcast[Map[String, ProbabilitiesByState]] = {
+  def createTransitionProbabilities(dataset: Dataset[_]): Map[String, ProbabilitiesByState] = {
 
-    val probabilitiesByStates = cachedDataset.toDF().rdd
+    dataset.toDF().rdd
       .map(row => (row.getString(0), row.getString(1), row.getDouble(2)))
       .groupBy(_._1)
       .map(group => {
@@ -84,32 +86,34 @@ class ActionValueFunctionEstimator(val session: SparkSession, val gamma: Double 
         (group._1, ProbabilitiesByState(group._1, probabilities))
       })
       .collect().toMap[String, ProbabilitiesByState]
-
-    session.sparkContext.broadcast(probabilitiesByStates)
   }
 
-  def calcDiscount(gamma: Double, depth: Int): Double = scala.math.pow(gamma, depth)
+  def calcDiscount(gamma: Double, depth: Int): Double = scala.math.pow(gamma, depth - 1)
 
-  def calculateActionValue(state: String, transitionProbabilities: Map[String, ProbabilitiesByState], rewards: Map[String, Double], depth: Int): Double = {
+  def calculateActionValue(state: StateProbability, transitionProbabilities: Map[String, ProbabilitiesByState], rewards: Map[String, Double], depth: Int): Double = {
 
     if (depth > episodeEndingDepth) {
       return 0 // end episode
     }
 
-    val stateProbabilities = transitionProbabilities.get(state)
+    val stateProbabilities = transitionProbabilities.get(state.state)
 
     if (stateProbabilities.isEmpty) {
       return 0 // end if state probabilities are empty
     }
 
+    val actionValues = stateProbabilities.get.probabilities.map(stateProbability => {
+      val actionValue = calculateActionValue(stateProbability, transitionProbabilities, rewards, depth + 1)
+      StateProbability(stateProbability.state, actionValue)
+    })
+
     // select next state by highest probability
-    val nextState = policy.select(stateProbabilities.get.probabilities)
+    val nextState = policy.select(actionValues)
 
     val discount = calcDiscount(gamma, depth)
     val reward = rewards.getOrElse(nextState.state, minReward)
 
-    return discount * reward * nextState.probability +
-      calculateActionValue(nextState.state, transitionProbabilities, rewards, depth + 1)
+    return reward * discount * state.probability + nextState.probability
   }
 
   def transformSchema(schema: StructType): StructType = {

@@ -108,13 +108,14 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
       val estimator = new ActionValueFunctionEstimator(null, episodeEndingDepth = 4).setRewards(rewards)
 
       When("calculate action value for state 'C'")
-      val actionValue = estimator.calculateActionValue("C", probabilities, rewards, 2)
+      val actionValue = estimator.calculateActionValue(StateProbability("C", 0.35), probabilities, rewards, 1)
 
       Then("action value is as expected with a depth limit of 4")
       assert(actionValue ==
-        scala.math.pow(0.5, 2) * 2 * 1.0 // C -> F
-          + scala.math.pow(0.5, 3) * 1 * 1.0 // F -> G
-          + scala.math.pow(0.5, 4) * 3 * 1.0 // G -> H
+        2.0 * scala.math.pow(0.5, 0) * 0.35 // C -> F
+          + 1.0 * scala.math.pow(0.5, 1) * 1.0 // F -> G
+          + 3.0 * scala.math.pow(0.5, 2) * 1.0 // G -> H
+          + 1.0 * scala.math.pow(0.5, 3) * 1.0 // H -> I
       )
     }
   }
