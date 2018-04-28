@@ -116,7 +116,7 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
       doReturn(1D) .when(estimator).getReward("I")
 
       When("calculate action value for state 'F'")
-      val actionValue = estimator.calculateActionValue(StateProbability("F", 1.0), 1)
+      val actionValue = estimator.calculateActionValue("F", 1.0, 0)
 
       Then("action value is as expected with a depth limit of 4")
       assert(actionValue ==

@@ -11,7 +11,7 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 class ActionValueFunctionEstimator(val session: SparkSession,
                                    val gamma: Double = 0.5,
                                    val episodeEndingDepth: Int = 10,
-                                   val minReward: Double = 1.0D) extends Estimator[ActionValueModel] {
+                                   val minReward: Double = 1.0) extends Estimator[ActionValueModel] {
 
   import ActionValueModel._
 
@@ -25,8 +25,8 @@ class ActionValueFunctionEstimator(val session: SparkSession,
   val policy = GreedyPolicy
   var rewards: Map[String, Double] = Map()
 
-  var cachedProbabilitiesByStates: Broadcast[Map[String, ProbabilitiesByState]] = null
-  var cachedRewards: Broadcast[Map[String, Double]] = null
+  var cachedProbabilitiesByStates: Broadcast[Map[String, ProbabilitiesByState]] = _
+  var cachedRewards: Broadcast[Map[String, Double]] = _
 
   def setRewards(rewards: Map[String, Double]): ActionValueFunctionEstimator = {
     this.rewards = rewards
@@ -41,10 +41,10 @@ class ActionValueFunctionEstimator(val session: SparkSession,
 
   def fit(dataset: Dataset[_]): ActionValueModel = {
 
+    broadcastRewards()
+
     // cache for DAG optimization
     val cachedDataset = dataset.cache()
-
-    broadcastRewards()
 
     createTransitionProbabilities(cachedDataset)
 
@@ -54,7 +54,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
         val consequent = row.getAs[String](CONSEQUENT)
         val probability = row.getAs[Double](PROBABILITY)
 
-        val actionValue = calculateActionValue(StateProbability(consequent, probability), 1)
+        val actionValue = calculateActionValue(consequent, probability, 0)
 
         Row(antecedent, consequent, actionValue)
       })
@@ -79,17 +79,17 @@ class ActionValueFunctionEstimator(val session: SparkSession,
     ProbabilitiesByState(key, probabilities)
   }
 
-  def broadcastRewards() = {
+  def broadcastRewards() {
     cachedRewards = session.sparkContext.broadcast(this.rewards)
   }
 
-  def getReward(state: String) = {
+  def getReward(state: String): Double = {
     cachedRewards.value.getOrElse(state, minReward)
   }
 
   def createTransitionProbabilities(dataset: Dataset[_]) = {
 
-    def probabilitiesByState = dataset.toDF().rdd
+    val probabilitiesByState = dataset.toDF().rdd
       .map(row => (row.getString(0), row.getString(1), row.getDouble(2)))
       .groupBy(_._1)
       .map(group => {
@@ -106,26 +106,29 @@ class ActionValueFunctionEstimator(val session: SparkSession,
     return cachedProbabilitiesByStates.value.get(state)
   }
 
-  def calcDiscount(gamma: Double, depth: Int): Double = scala.math.pow(gamma, depth - 1)
+  def calcDiscount(depth: Int): Double = scala.math.pow(this.gamma, depth)
 
-  def calculateActionValue(state: StateProbability, depth: Int): Double = {
+  def calculateActionValue(state: String, probability: Double, depth: Int): Double = {
 
-    if (depth > episodeEndingDepth) {
+    if (depth >= episodeEndingDepth) {
       return 0 // end episode because of max depth
     }
 
-    val discount = calcDiscount(gamma, depth)
-    val reward = getReward(state.state)
-    val probability = state.probability
+    // calculate action-value for the current state
+    val discount = calcDiscount(depth)
+    val reward = getReward(state)
 
-    var actionValue: Double = reward * discount * probability
+    var actionValue: Double = probability * discount * reward
 
-    val stateProbabilities = getProbabilitiesByState(state.state)
+    // get the following action-values from the MDP
+    val stateProbabilities = getProbabilitiesByState(state)
 
     if (stateProbabilities.nonEmpty) {
       val actionValues = stateProbabilities.get.probabilities
         .map(stateProbability => {
-          val actionValue = calculateActionValue(stateProbability, depth + 1)
+          // calculate action-value for the next depth
+          val actionValue = calculateActionValue(stateProbability.state, stateProbability.probability, depth + 1)
+          // return action-value als StateProbability object, related to given state
           StateProbability(stateProbability.state, actionValue)
         })
 
