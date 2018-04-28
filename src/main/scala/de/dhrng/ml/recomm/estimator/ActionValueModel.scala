@@ -27,7 +27,10 @@ class ActionValueModel(val model: DataFrame) extends Model[ActionValueModel] {
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    // implement selection
     model.select()
+
+    model.sample(1).limit(0)
   }
 
   override def transformSchema(schema: StructType): StructType = {

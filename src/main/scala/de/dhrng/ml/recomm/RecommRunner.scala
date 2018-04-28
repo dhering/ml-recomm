@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 object RecommRunner extends LazyLogging {
 
-  val IMPORT_FOLDER = "data"
+  val IMPORT_FOLDER = "data/singleTransaction"
   val appName: String = "recomm"
   val master: String = "local[*]"
 

@@ -7,5 +7,4 @@ object ml extends Serializable {
   case class StateProbability(state: String, probability: Double) {
     override def toString: String = state + ": " + probability
   }
-
 }

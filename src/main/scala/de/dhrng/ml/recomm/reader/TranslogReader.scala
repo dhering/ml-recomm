@@ -5,9 +5,6 @@ import java.io.{File, FilenameFilter}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-/**
-  * @author Dennis Hering (dennis.hering@nexum.de)
-  */
 class TranslogReader private(folder: String) extends LazyLogging {
 
   var format: String = "csv"

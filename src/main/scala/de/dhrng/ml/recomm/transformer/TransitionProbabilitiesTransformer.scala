@@ -6,7 +6,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
-class TransitionProbabilitiesTransformer(sparkSession: SparkSession) extends Transformer {
+  class TransitionProbabilitiesTransformer(sparkSession: SparkSession) extends Transformer {
 
   override val uid: String = getClass.getName.hashCode.toString
 
