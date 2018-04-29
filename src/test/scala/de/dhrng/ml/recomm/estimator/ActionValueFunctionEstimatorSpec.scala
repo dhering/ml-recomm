@@ -51,20 +51,23 @@ class ActionValueFunctionEstimatorSpec extends FeatureSpec with GivenWhenThen wi
         "I" -> 1D
       )
 
+      And("an initialized estimator")
       val estimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4).setRewards(rewards)
 
-      When("the transaction list is filtered")
+      When("the action value model is fitted")
       val model = estimator.fit(transactions).model.collect()
 
       Then("only 3 transactions should be remain")
       assert(model.length == 10)
 
+      And("the action value from A to B is as expected")
       assert(getRowFor("A", "B", model).getDouble(2) ==
         10 * scala.math.pow(0.5, 0) * 0.5  // A -> B
           + 1 * scala.math.pow(0.5, 1) * 0.9999 // B -> D
           + 10 * scala.math.pow(0.5, 2) * 1.0, // D -> E
       "row[A, B]")
 
+      And("the action value from A to C is as expected")
       assert(getRowFor("A", "C", model).getDouble(2) ==
         15.0 * scala.math.pow(0.5, 0) * 0.35 // A -> C
           + 2.0 * scala.math.pow(0.5, 1) * 1.0 // C -> F

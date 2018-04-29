@@ -18,7 +18,7 @@ class FilterTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers
 
   feature("FilterTransformer") {
 
-    scenario("filter transactions") {
+    scenario("transactions are filtered") {
 
       Given("a list of 5 user transactions")
       val session = fixture.session
@@ -32,6 +32,7 @@ class FilterTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers
         ("trans1", "C", "1")      // remove this
       ).toDF("transactID", "itemID", "transType")
 
+      And("initialized transformer")
       val filterTransformer = new FilterTransformer(session )
 
       When("the transaction list is filtered")

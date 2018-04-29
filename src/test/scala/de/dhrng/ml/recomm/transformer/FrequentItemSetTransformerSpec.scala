@@ -25,24 +25,29 @@ class FrequentItemSetTransformerSpec extends FeatureSpec with GivenWhenThen with
 
   feature("FrequentItemSetTransformer") {
 
-    scenario("transform to frequent itemsets") {
+    scenario("transform translogs to frequent itemsets") {
 
       Given("transactions for 2 user sessions")
-      val session = fixture.session
-
       val transactions = fixture.transactions
 
+      And("an initialized transformer")
+      val session = fixture.session
       val frequentItemSetTransformer = new FrequentItemSetTransformer(session )
 
       When("the transactions are transformed into frequency itemsets")
       val dataFrame = frequentItemSetTransformer.transform(transactions)
 
-      Then("4 itemsets should be there")
+      Then("3 itemsets should be there")
       val rows = dataFrame.collect()
-
       assert(rows.length == 3)
+
+      And("the frequency for A to B is 2")
       assert(getRowFor("A", "B", rows).getLong(2) == 2)
+
+      And("the frequency for B to C is 1")
       assert(getRowFor("B", "C", rows).getLong(2) == 1)
+
+      And("the frequency for B to D is 1")
       assert(getRowFor("B", "D", rows).getLong(2) == 1)
     }
 

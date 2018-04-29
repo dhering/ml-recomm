@@ -39,8 +39,13 @@ object RecommRunner extends LazyLogging {
         actionValueFunctionEstimator
       ))
 
-    val model = pipeline.fit(translogs)
+    val actionValueModel = pipeline.fit(translogs)
         .stages.last.asInstanceOf[de.dhrng.ml.recomm.estimator.ActionValueModel]
+
+    actionValueModel.model.coalesce(1)
+      .write
+      .option("header", "true")
+      .csv("target/action-values.csv")
 
     session.stop()
   }

@@ -31,6 +31,7 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
         ("B", "E", 1L)
       ).toDF("antecedent", "consequent", "frequency")
 
+      And("an initialized transformer")
       val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session)
 
       When("the transitions are transformed to probabilities")
@@ -39,10 +40,20 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
       Then("5 transition probabilities are in the result")
       val rows = dataFrame.collect()
       assert(rows.length == 5)
+
+      And("the probability for A to B is 0.5")
       assert(getRowFor("A", "B", rows).getDouble(2) == 0.5)
+
+      And("the probability for A to C is 0.35")
       assert(getRowFor("A", "C", rows).getDouble(2) == 0.35)
+
+      And("the probability for A to D is 0.15")
       assert(getRowFor("A", "D", rows).getDouble(2) == 0.15)
+
+      And("the probability for B to D is 0.9999")
       assert(getRowFor("B", "D", rows).getDouble(2) == 0.9999)
+
+      And("the probability for B to E is 0.0001")
       assert(getRowFor("B", "E", rows).getDouble(2) == 0.0001)
 
     }
