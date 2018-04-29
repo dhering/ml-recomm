@@ -22,7 +22,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
 
   val PROBABILITY: String = COL_PROBABILITY.name
 
-  val policy = GreedyPolicy
+  val policy: GreedyPolicy.type = GreedyPolicy
   var rewards: Map[String, Double] = Map()
 
   var cachedProbabilitiesByStates: Broadcast[Map[String, ProbabilitiesByState]] = _
@@ -64,7 +64,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
 
 
   /**
-    * map (key, (antecedent, consequent, probability)) to {@link ProbabilitiesByState}
+    * map (key, (antecedent, consequent, probability)) to `ProbabilitiesByState`
     *
     * @param group a tuple of (key, (antecedent, consequent, probability))
     * @return new ProbabilitiesByState object
@@ -87,7 +87,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
     cachedRewards.value.getOrElse(state, minReward)
   }
 
-  def createTransitionProbabilities(dataset: Dataset[_]) = {
+  def createTransitionProbabilities(dataset: Dataset[_]): Unit = {
 
     val probabilitiesByState = dataset.toDF().rdd
       .map(row => (row.getString(0), row.getString(1), row.getDouble(2)))
