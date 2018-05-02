@@ -29,7 +29,7 @@ object RecommRunner extends LazyLogging {
     val filterTransformer = new FilterTransformer(session)
     val frequentItemSetTransformer = new FrequentItemSetTransformer(session)
     val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session)
-    val actionValueFunctionEstimator = new ActionValueFunctionEstimator(session)
+    val actionValueFunctionEstimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4)
 
 
     val pipeline = new Pipeline()
