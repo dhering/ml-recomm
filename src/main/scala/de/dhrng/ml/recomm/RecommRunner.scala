@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator
 import de.dhrng.ml.recomm.reader.TranslogReader
 import de.dhrng.ml.recomm.transformer.{FilterTransformer, FrequentItemSetTransformer, TransitionProbabilitiesTransformer}
+import de.dhrng.ml.recomm.writer.CsvWriter
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql.SparkSession
 
@@ -42,10 +43,7 @@ object RecommRunner extends LazyLogging {
     val actionValueModel = pipeline.fit(translogs)
         .stages.last.asInstanceOf[de.dhrng.ml.recomm.estimator.ActionValueModel]
 
-    actionValueModel.model.coalesce(1)
-      .write
-      .option("header", "true")
-      .csv("target/action-values.csv")
+    CsvWriter.write(actionValueModel.model, "target/action-values.csv")
 
     session.stop()
   }
