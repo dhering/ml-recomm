@@ -10,19 +10,24 @@ import org.apache.spark.sql.SparkSession
 
 object RecommRunner extends LazyLogging {
 
-  val IMPORT_FOLDER = "data/singleTransaction"
   val appName: String = "recomm"
   val master: String = "local[*]"
 
   def main(args: Array[String]): Unit = {
-    run()
 
+    val importFolder = args(0)
+
+    if(importFolder == null || importFolder.isEmpty){
+      throw new IllegalArgumentException("path as argument is missing")
+    }
+
+    run(importFolder)
   }
 
-  def run(): Unit = {
+  def run(importFolder: String): Unit = {
     val session = createSparkSesion()
     
-    val translogs = TranslogReader.from(IMPORT_FOLDER)
+    val translogs = TranslogReader.from(importFolder)
       .withSeparator("|")
       .read(session)
 
