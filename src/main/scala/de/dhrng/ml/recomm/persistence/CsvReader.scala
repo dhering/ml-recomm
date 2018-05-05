@@ -1,4 +1,4 @@
-package de.dhrng.ml.recomm.writer
+package de.dhrng.ml.recomm.persistence
 
 import java.io.FileReader
 

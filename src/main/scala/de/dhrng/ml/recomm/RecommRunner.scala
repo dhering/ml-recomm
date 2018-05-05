@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.dhrng.ml.recomm.estimator.ActionValueFunctionEstimator
 import de.dhrng.ml.recomm.reader.TranslogReader
 import de.dhrng.ml.recomm.transformer.{FilterTransformer, FrequentItemSetTransformer, TransitionProbabilitiesTransformer}
-import de.dhrng.ml.recomm.writer.CsvWriter
+import de.dhrng.ml.recomm.persistence.CsvWriter
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql.SparkSession
 
