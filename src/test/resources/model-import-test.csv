@@ -1,0 +1,9 @@
+premise,conclusion,value
+A,B,2.1
+A,C,0.2
+A,D,0.3
+A,E,0.4
+A,F,0.000001
+B,A,0.2
+B,C,0.4
+C,A,1.0
