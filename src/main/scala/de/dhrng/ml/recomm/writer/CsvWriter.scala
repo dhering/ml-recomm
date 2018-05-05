@@ -6,7 +6,18 @@ import org.apache.commons.csv.CSVPrinter
 import java.nio.file.Files
 import java.nio.file.Paths
 
+import org.apache.spark.ml.PipelineModel
+
 object CsvWriter {
+
+  def write(model: PipelineModel, path: String): Unit = {
+
+    // get last stage of the trained PipelineModel as ActionValueModel
+    val actionValueModel = model.stages.last
+                            .asInstanceOf[de.dhrng.ml.recomm.estimator.ActionValueModel]
+
+    write(actionValueModel.model, path)
+  }
 
   def write(df: DataFrame, path: String): Unit = {
     // get header/column names from dataframe

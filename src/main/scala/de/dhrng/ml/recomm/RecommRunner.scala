@@ -31,7 +31,6 @@ object RecommRunner extends LazyLogging {
     val transitionProbabilitiesTransformer = new TransitionProbabilitiesTransformer(session)
     val actionValueFunctionEstimator = new ActionValueFunctionEstimator(session, episodeEndingDepth = 4)
 
-
     val pipeline = new Pipeline()
       .setStages(Array(
         filterTransformer,
@@ -40,10 +39,9 @@ object RecommRunner extends LazyLogging {
         actionValueFunctionEstimator
       ))
 
-    val actionValueModel = pipeline.fit(translogs)
-        .stages.last.asInstanceOf[de.dhrng.ml.recomm.estimator.ActionValueModel]
+    var model = pipeline.fit(translogs)
 
-    CsvWriter.write(actionValueModel.model, "target/action-values.csv")
+    CsvWriter.write(model, "target/action-values.csv")
 
     session.stop()
   }
