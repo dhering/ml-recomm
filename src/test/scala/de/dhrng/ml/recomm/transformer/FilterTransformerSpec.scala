@@ -7,9 +7,9 @@ import org.scalatest._
 class FilterTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers with
   OptionValues with Inside with Inspectors with BeforeAndAfter {
 
-  def fixture =
+  def fixture : {val session: SparkSession} =
     new {
-      val session =  SparkSession
+      val session: SparkSession =  SparkSession
         .builder()
         .appName("test")
         .master("local[1]")

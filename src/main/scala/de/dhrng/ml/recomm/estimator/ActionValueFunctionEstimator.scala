@@ -103,7 +103,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
   }
 
   def getProbabilitiesByState(state: String): Option[ProbabilitiesByState] = {
-    return cachedProbabilitiesByStates.value.get(state)
+    cachedProbabilitiesByStates.value.get(state)
   }
 
   def calcDiscount(depth: Int): Double = scala.math.pow(this.gamma, depth)
@@ -138,7 +138,7 @@ class ActionValueFunctionEstimator(val session: SparkSession,
       actionValue += nextState.value
     }
 
-    return actionValue
+    actionValue
   }
 
   def transformSchema(schema: StructType): StructType = {

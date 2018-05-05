@@ -6,9 +6,9 @@ import org.scalatest._
 class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers with
   OptionValues with Inside with Inspectors with BeforeAndAfter {
 
-  def fixture =
+  def fixture : {val session: SparkSession} =
     new {
-      val session =  SparkSession
+      val session: SparkSession = SparkSession
         .builder()
         .appName("test")
         .master("local[1]")
@@ -60,6 +60,6 @@ class TransitionProbabilitiesTransformerSpec extends FeatureSpec with GivenWhenT
   }
 
   private def getRowFor(antecedent: String, consequent: String, rows: Array[Row]) = rows.collectFirst { case row
-    if (row.getString(0) == antecedent && row.getString(1) == consequent) => row
+    if row.getString(0) == antecedent && row.getString(1) == consequent => row
   }.orNull
 }

@@ -7,9 +7,11 @@ import org.scalatest._
 class FrequentItemSetTransformerSpec extends FeatureSpec with GivenWhenThen with Matchers with
   OptionValues with Inside with Inspectors with BeforeAndAfter {
 
-  def fixture =
-    new {
-      val session = SparkSession
+  def fixture: {
+    val session: SparkSession
+    val transactions: DataFrame
+  } = new {
+      val session: SparkSession = SparkSession
         .builder()
         .appName("test")
         .master("local[1]")
@@ -77,6 +79,6 @@ class FrequentItemSetTransformerSpec extends FeatureSpec with GivenWhenThen with
   }
 
   private def getRowFor(antecedent: String, consequent: String, rows: Array[Row]) = rows.collectFirst { case row
-    if (row.getString(0) == antecedent && row.getString(1) == consequent) => row
+    if row.getString(0) == antecedent && row.getString(1) == consequent => row
   }.orNull
 }

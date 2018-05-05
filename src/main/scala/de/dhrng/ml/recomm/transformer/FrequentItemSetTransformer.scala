@@ -27,7 +27,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
       .groupByKey(_.getAs[String](TRANSACTION_ID))
 
       // collect transitions by grouped transactions
-      .flatMapGroups((transactionId, rows) => mapToTransitions(rows))
+      .flatMapGroups((_, rows) => mapToTransitions(rows))
 
       // allow only pairs of different itemIDs
       .filter(pair => pair._1 != pair._2)
@@ -64,7 +64,7 @@ class FrequentItemSetTransformer(sparkSession: SparkSession, markEnding: Boolean
       result = result :+ (lastItemID, "#END#")
     }
 
-    return result
+    result
   }
 
   override def copy(extra: ParamMap): Transformer = {
