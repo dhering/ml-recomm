@@ -4,7 +4,7 @@ import de.dhrng.ml.recomm.model.ml.ActionValue
 
 import scala.util.Random
 
-class EGreedyPolicy(stateList: List[String], epsilon: Double = 0.1) {
+class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
 
   def select(actionValues: Seq[ActionValue], amount: Int): Seq[String] = {
 
