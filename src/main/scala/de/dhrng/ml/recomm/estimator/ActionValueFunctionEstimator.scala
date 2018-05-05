@@ -1,7 +1,7 @@
 package de.dhrng.ml.recomm.estimator
 
 import de.dhrng.ml.recomm.common.ColumnDefinition._
-import de.dhrng.ml.recomm.model.ml.{ProbabilitiesByState, StateProbability}
+import de.dhrng.ml.recomm.model.ml.{ActionValue, ProbabilitiesByState, StateProbability}
 import de.dhrng.ml.recomm.policy.GreedyPolicy
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Estimator
@@ -129,13 +129,13 @@ class ActionValueFunctionEstimator(val session: SparkSession,
           // calculate action-value for the next depth
           val actionValue = calculateActionValue(stateProbability.state, stateProbability.probability, depth + 1)
           // return action-value als StateProbability object, related to given state
-          StateProbability(stateProbability.state, actionValue)
+          ActionValue(stateProbability.state, actionValue)
         })
 
       // select next state by highest probability
       val nextState = policy.select(actionValues)
 
-      actionValue += nextState.probability
+      actionValue += nextState.value
     }
 
     return actionValue

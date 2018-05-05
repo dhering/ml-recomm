@@ -1,11 +1,11 @@
 package de.dhrng.ml.recomm.policy
 
-import de.dhrng.ml.recomm.model.ml.StateProbability
+import de.dhrng.ml.recomm.model.ml.ActionValue
 
-object GreedyPolicy extends Policy{
+object GreedyPolicy extends Policy {
 
-  def select(probabilities: Seq[StateProbability]): StateProbability = {
+  def select(probabilities: Seq[ActionValue]): ActionValue = {
 
-    probabilities.sortWith(_.probability > _.probability).head
+    probabilities.sortWith(_.value > _.value).head
   }
 }
