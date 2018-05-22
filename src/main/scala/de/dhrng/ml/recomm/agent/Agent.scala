@@ -1,8 +1,6 @@
 package de.dhrng.ml.recomm.agent
 
-import de.dhrng.ml.recomm.model.ml.{ActionValue, ActionValuesByState}
-
-import scala.util.Random
+import de.dhrng.ml.recomm.model.ml.ActionValuesByState
 
 class Agent(model: Map[String, ActionValuesByState]) {
 
