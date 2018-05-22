@@ -19,6 +19,17 @@ class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
       .map(state => if (explore()) randomState(conclusionStates) else state)
   }
 
+  def explore(): Boolean = {
+
+    if (epsilon <= 0.0) {
+      return false
+    } else if (epsilon >= 1.0){
+      return true
+    }
+
+    Random.nextDouble() <= epsilon
+  }
+
   def randomState(usedStates: Seq[String]): String = {
 
     var result = stateList(Random.nextInt(stateList.size))
@@ -29,14 +40,5 @@ class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
     }
 
     result
-  }
-
-  def explore(): Boolean = {
-
-    if (epsilon == 0) {
-      return false
-    }
-
-    Random.nextDouble() <= epsilon
   }
 }
