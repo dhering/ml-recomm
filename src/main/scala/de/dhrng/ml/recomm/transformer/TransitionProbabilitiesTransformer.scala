@@ -6,7 +6,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
-  class TransitionProbabilitiesTransformer(sparkSession: SparkSession) extends Transformer {
+class TransitionProbabilitiesTransformer(sparkSession: SparkSession) extends Transformer {
 
   override val uid: String = getClass.getName.hashCode.toString
 
@@ -38,15 +38,13 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
   def createAntecedentFreq(dataset: Dataset[_]): DataFrame = {
 
-    val freq = dataset.toDF()
+    dataset.toDF()
       // select only antecedent items and sum frequencies of equal item IDs
       .select(ANTECEDENT, FREQUENCY)
-      .rdd
-        .map(row => (row.getAs[String](ANTECEDENT), row.getAs[Long](FREQUENCY)))
-        .reduceByKey(_ + _)
-      .map(row => Row(row._1, row._2))
-
-    sparkSession.createDataFrame(freq, StructType(Seq(COL_ANTECEDENT, COL_ANTECEDENT_FREQUENCY)))
+      .groupBy(ANTECEDENT)
+      .sum(FREQUENCY)
+      // rename generated column 'sum(FREQUENCY)' to 'ANTECEDENT_FREQUENCY'
+      .withColumnRenamed("sum(FREQUENCY)", ANTECEDENT_FREQUENCY)
   }
 
   override def copy(extra: ParamMap): Transformer = {
