@@ -16,7 +16,7 @@ class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
 
     // explore states with a randomness of epsilon
     conclusionStates
-      .map(state => if (explore()) randomState(conclusionStates) else state)
+      .map(state => if (explore()) randomState(conclusionStates).getOrElse(state) else state)
   }
 
   def explore(): Boolean = {
@@ -30,15 +30,20 @@ class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
     Random.nextDouble() <= epsilon
   }
 
-  def randomState(usedStates: Seq[String]): String = {
+  def randomState(usedStates: Seq[String], retry: Int = 10): Option[String] = {
 
-    var result = stateList(Random.nextInt(stateList.size))
+    if(retry <= 0){
+      // limit retry recursion
+      return None
+    }
+
+    val result = stateList(Random.nextInt(stateList.size))
 
     if (usedStates.contains(result)) {
       // search next random state, if random value is already used
-      result = randomState(usedStates)
+      return randomState(usedStates, retry -1)
     }
 
-    result
+    Some(result)
   }
 }
