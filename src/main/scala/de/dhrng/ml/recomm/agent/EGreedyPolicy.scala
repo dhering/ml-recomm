@@ -16,7 +16,10 @@ class EGreedyPolicy(stateList: List[String], var epsilon: Double = 0.1) {
 
     // explore states with a randomness of epsilon
     conclusionStates
-      .map(state => if (explore()) randomState(conclusionStates).getOrElse(state) else state)
+      .map(state =>
+        if (explore()) randomState(conclusionStates).getOrElse(state)
+        else state
+      )
   }
 
   def explore(): Boolean = {
